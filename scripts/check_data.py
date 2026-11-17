@@ -1,4 +1,5 @@
 """Verify the dataset layout under $FATE_DATA is identical on every machine.  python scripts/check_data.py"""
+import sys as _s, os as _o; _s.path.insert(0, _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), ".."))
 import os, sys
 from fatecnn.env import paths
 

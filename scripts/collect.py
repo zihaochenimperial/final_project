@@ -1,5 +1,6 @@
 """Copy small result files (manifest/config/metrics, no checkpoints) from $FATE_RUNS into tracked results/.
 Usage: python scripts/collect.py [experiment]   then git add results && git commit && git push"""
+import sys as _s, os as _o; _s.path.insert(0, _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), ".."))
 import os, shutil, sys
 from fatecnn.env import paths, REPO
 
