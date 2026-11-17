@@ -136,13 +136,13 @@ if __name__ == "__main__":
     if not os.path.isabs(a.run) and not os.path.exists(a.run):
         a.run = os.path.join(paths()["FATE_RUNS"], a.run)
     cp = os.path.join(a.run, "config.yaml")
-    cfg = load_config(cp, profile=yaml.safe_load(open(cp)).get("profile"))
+    cfg = yaml.safe_load(open(cp))   # saved config is already the final merged one: do NOT re-apply a profile
     dev = cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
     ds_te, K, C = build_dataset(cfg, a.split)
     model = build_model(cfg, C, K).to(dev)
     model.load_state_dict(torch.load(os.path.join(a.run, "ckpt.pt"), map_location=dev))
     tp = os.path.join(a.run, "thresholds.json")
-    if a.calibrate or not os.path.exists(tp):
+    if getattr(model, "has_parts", True) and (a.calibrate or not os.path.exists(tp)):
         ds_va, _, _ = build_dataset(cfg, "val")                       # thresholds from VAL, never from the evaluated split
         json.dump(calibrate(model, DataLoader(ds_va, batch_size=cfg["batch_size"]), K, dev), open(tp, "w"))
     thr = json.load(open(tp))["active_thr"] if getattr(model, "has_parts", True) else [0.0] * K
