@@ -43,7 +43,7 @@ def run(cfg):
     method = cfg.get("method", "fate")
     backbone = list(model.stem.parameters()) + list(model.body.parameters())
     opt = torch.optim.AdamW([{"params": backbone, "lr": cfg["lr"] * cfg.get("backbone_lr_mult", 1.0)},
-                             {"params": model.head.parameters(), "lr": cfg["lr"]}], weight_decay=cfg.get("wd", 1e-4))
+                             {"params": [q for n_, q in model.named_parameters() if not n_.startswith(("stem", "body"))], "lr": cfg["lr"]}], weight_decay=cfg.get("wd", 1e-4))
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, cfg["epochs"])
     out = cfg.get("out")
     if out:
@@ -52,6 +52,7 @@ def run(cfg):
     step = 0
     for ep in range(cfg["epochs"]):
         model.train()
+        warm = min(1.0, (ep + 1) / max(1.0, cfg.get("warmup_frac", 0.3) * cfg["epochs"]))  # ramp erasure losses
         for x, y, m in dl:
             x, y, m = x.to(dev), y.to(dev), m.to(dev)
             p = random.randrange(K)
@@ -71,9 +72,13 @@ def run(cfg):
                     loss = ce + F.cross_entropy(model(xo, m, update=False)[0], y)
                 else:                   # fate / fate_learned
                     _, ae = model(xo, m, update=False)
-                    erf = erf_leak_loss(a, x, m, p) if use_erf else None
-                    loss = fate_loss(ce, silence_loss(ae, p), stability_loss(ae, a, p), erf,
-                                     cfg["lambda_sil"], cfg["lambda_stab"], cfg["lambda_erf"])
+                    has = m[:, p].flatten(1).sum(1) > 0   # erasing an absent part is a no-op: exclude
+                    if has.any():
+                        erf = erf_leak_loss(a, x, m, p) if use_erf else None
+                        loss = fate_loss(ce, silence_loss(ae[has], p), stability_loss(ae[has], a[has], p), erf,
+                                         warm * cfg["lambda_sil"], warm * cfg["lambda_stab"], warm * cfg["lambda_erf"])
+                    else:
+                        loss = ce
             opt.zero_grad(); loss.backward(); opt.step(); step += 1
         sched.step()
         model.eval(); c = n = 0; sr = 0.0

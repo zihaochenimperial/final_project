@@ -28,7 +28,7 @@ r = subprocess.run([sys.executable, _o.path.join(REPO, "scripts", "check_data.py
 print("[WARN] CUB data not found (needed for real runs)" if r.returncode else "[OK] CUB data layout")
 if "--fast" not in sys.argv:
     base = dict(dataset="synthetic", arch="resnet18", n=16, size=64, num_parts=4, num_classes=4, batch_size=8,
-                lr=1e-3, epochs=1, lambda_sil=1.0, lambda_stab=1.0, lambda_erf=0.1, erf_every=1, device="cpu", workers=0)
+                lr=1e-3, epochs=1, lambda_sil=0.1, lambda_stab=0.1, lambda_erf=0.1, erf_every=1, device="cpu", workers=0)
     for name, ov in MATRIX.items():
         t = time.time()
         try:

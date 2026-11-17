@@ -10,8 +10,8 @@ backbone_lr_mult: 0.1
 wd: 1.0e-4
 epochs: 30
 seed: 0
-lambda_sil: 1.0
-lambda_stab: 1.0
+lambda_sil: 0.1
+lambda_stab: 0.1
 lambda_erf: 0.1
 erf_every: 4
 out: cub_r18/0

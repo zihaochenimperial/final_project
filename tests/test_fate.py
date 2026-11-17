@@ -31,7 +31,7 @@ def test_forward_and_losses():
 
 def test_train_smoke():
     run(dict(seed=0, arch="resnet18", n=32, size=64, num_parts=4, num_classes=4, batch_size=16,
-             lr=1e-3, epochs=1, lambda_sil=1.0, lambda_stab=1.0, lambda_erf=0.0))
+             lr=1e-3, epochs=1, lambda_sil=0.1, lambda_stab=0.1, lambda_erf=0.0))
 
 
 def test_occlusion_fills():

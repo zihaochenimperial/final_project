@@ -11,7 +11,7 @@
 - RIVAL10 K=11：取 11 个局部属性（见 Moayeri 等 2022）；掩码来自官方 entity masks（转换脚本待数据到位后实现）。
 
 ## 损失
-L = L_cls + λ₁·silence + λ₂·stability + λ₃·ERF-leak；默认 λ₁=1, λ₂=1, λ₃=0.1；ERF 只在每 4 步启用一次（双反传昂贵）；每步随机抽一个部件 p 擦除。
+L = L_cls + λ₁·silence + λ₂·stability + λ₃·ERF-leak；默认 λ₁=0.1, λ₂=0.1, λ₃=0.1，前 30% epoch 线性预热；只对部件在图中可见的样本施加擦除损失；ERF 只在每 4 步启用一次（双反传昂贵）；每步随机抽一个部件 p 擦除。
 
 ## 训练
 - 输入 224×224（CUB 先 resize 256 再 crop 224）；AdamW，lr 1e-3（头/读出）、1e-4（骨干）；cosine；weight decay 1e-4；

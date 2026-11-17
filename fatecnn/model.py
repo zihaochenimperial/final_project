@@ -22,6 +22,9 @@ class FATECNN(nn.Module):
         self.kind = readout
         self.readout = LCMVReadout(c, num_parts, sig_mode=sig_mode, loading=loading) if readout == "lcmv" \
             else nn.Conv2d(c, num_parts, 1)
+        # per-part detection calibration (gain, threshold): linear, so the null constraint is untouched
+        self.cal_s = nn.Parameter(torch.ones(num_parts)) if readout == "lcmv" else None
+        self.cal_b = nn.Parameter(torch.full((num_parts,), -0.5)) if readout == "lcmv" else None
         self.vis_thresh = vis_thresh
         self.head = nn.Linear(num_parts, num_classes)
         self.num_parts = num_parts
@@ -36,6 +39,8 @@ class FATECNN(nn.Module):
             self.readout.update_stats(f, masks, x)
             self.readout.refresh()
         self.raw = self.readout(f)                           # (B,K,h,w) pre-activation (used by multitask)
+        if self.cal_s is not None:
+            self.raw = self.raw * self.cal_s[None, :, None, None] + self.cal_b[None, :, None, None]
         a = torch.relu(self.raw)
         e = a.amax((2, 3))                                   # part evidence
         v = (e > self.vis_thresh).float()                    # visibility gate (silent => 0)

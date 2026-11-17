@@ -3,10 +3,14 @@ import torch
 
 
 @torch.no_grad()
-def silence_rate(a_clean, a_erased, p, ratio=0.1):
-    """Fraction of samples whose part-p energy drops below `ratio` x clean energy."""
+def silence_rate(a_clean, a_erased, p, ratio=0.1, eps=1e-3):
+    """Among samples where part p is active when clean (energy > eps), fraction whose energy after erasure
+    drops to <= `ratio` x clean energy. Parts that are inactive when clean are excluded (nothing to silence)."""
     e0 = a_clean[:, p].abs().mean((1, 2)); e1 = a_erased[:, p].abs().mean((1, 2))
-    return (e1 < ratio * e0.clamp_min(1e-8)).float().mean().item()
+    act = e0 > eps
+    if not act.any():
+        return 0.0
+    return (e1[act] <= ratio * e0[act]).float().mean().item()
 
 
 @torch.no_grad()

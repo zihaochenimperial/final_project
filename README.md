@@ -40,6 +40,5 @@ python -m fatecnn.train --config configs/synthetic.yaml
 ```
 
 ## 状态
-训练前的准备已完成（9 个测试通过；预检中 10 种方法/消融配置在合成数据上各跑通一步训练+评估）。
-**尚未做**：真实数据（CUB/RIVAL10）下载与 RIVAL10 转换、外部基线（ICNN/ProtoPNet/PIP-Net/CompNets/MPM）、真实数据上的超参调试、
-HPC 调度器核实（清单见 docs/04_requirements.md）。尚无任何真实训练结果；涨点预期均为推测。
+训练前的工程准备已完成（测试通过；10 种配置的预检跑通）。合成数据自检**未**显示 FATE 优于基线，且发现并修复了若干缺陷，详见 docs/06_pre_training_findings.md。
+**尚未做**：真实数据（容器无法联网，请在有网机器用 `scripts/download_data.sh`）、RIVAL10 转换、外部基线、真实数据超参调试、HPC 调度器核实。无任何真实训练结果。

@@ -42,5 +42,5 @@
 - [x] 种子聚合与 bootstrap 置信区间（`scripts/aggregate.py`）
 - [ ] RIVAL10 转换脚本（需数据；其官方标注格式尚未核对）
 - [ ] 外部基线：Interpretable CNN、ProtoPNet/PIP-Net、CompositionalNets、Concept Whitening、MPM（需引入官方实现并对齐骨干/预算）
-- [ ] 真实 CUB 数据上的超参调试（lr/λ 目前为初始值）
+- [ ] 真实 CUB 数据上的超参调试（lr/λ 为初始值；合成数据自检见 docs/06，**FATE 尚未显示优于基线**）
 - [ ] Imperial HPC 调度器/队列核实后更新 `hpc/*.pbs`
