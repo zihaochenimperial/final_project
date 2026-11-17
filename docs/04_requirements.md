@@ -34,8 +34,13 @@
 - [x] LCMV 读出、损失、指标、冒烟训练
 - [x] CUB 加载（关键点→部件掩码）、通用部件数据集接口
 - [x] 遮挡协议（灰/噪声/纹理/块）、评估脚本
-- [x] HPC 作业模板、环境脚本
-- [ ] RIVAL10 转换脚本（需数据）
-- [ ] 基线实现/接入（ICNN、ProtoPNet、PIP-Net、CompNets、MPM、Cutout、多任务头）
-- [ ] 三臂签名估计（区域 / 轮廓 / 通用边缘）
-- [ ] 种子聚合与 bootstrap 置信区间脚本
+- [x] HPC 作业模板（单作业 + 数组作业）、环境脚本
+- [x] 统一协议（docs/05）、manifest、collect/check_data
+- [x] 对照方法：plain / cutout（同遮挡量）/ multitask（同部件监督）/ fate_learned（LCMV 消融），均在同一骨干与调参预算下
+- [x] 三臂签名估计（region / contour / edge，见 `lcmv.estimate_signatures`；操作性定义为本仓库的约定，待与老师确认其对应“仅区域/区域+轮廓/区域+通用边缘”的口径）
+- [x] 实验矩阵 `scripts/experiments.py`（10 组 × 3 种子 = 30 作业）+ 预检 `scripts/preflight.py`
+- [x] 种子聚合与 bootstrap 置信区间（`scripts/aggregate.py`）
+- [ ] RIVAL10 转换脚本（需数据；其官方标注格式尚未核对）
+- [ ] 外部基线：Interpretable CNN、ProtoPNet/PIP-Net、CompositionalNets、Concept Whitening、MPM（需引入官方实现并对齐骨干/预算）
+- [ ] 真实 CUB 数据上的超参调试（lr/λ 目前为初始值）
+- [ ] Imperial HPC 调度器/队列核实后更新 `hpc/*.pbs`

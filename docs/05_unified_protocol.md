@@ -56,6 +56,11 @@ SEED=0 qsub hpc/job_train.pbs              # 作业内 profile=hpc，训练+评�
 python scripts/collect.py cub_r18 && git add results && git commit -m "results: cub_r18" && git push
 ```
 
+## 6b. 训练前检查与实验矩阵
+- 每台机器启动前：`python scripts/preflight.py`（环境/profile/设备/数据布局 + 10 种配置各跑 1 步训练与评估）；`--fast` 只做环境检查。
+- 实验矩阵唯一来源 `scripts/experiments.py`：`python scripts/experiments.py jobs > hpc/jobs.txt`（30 行）→ `qsub -J 1-30 hpc/job_array.pbs`（语法待核实）。
+- 汇总：`python scripts/collect.py && python scripts/aggregate.py` → `results/summary.md`（均值 + bootstrap 95% CI；3 种子下区间较宽，如实报告）。
+
 ## 7. 一致性与可复现约定
 - 种子固定（`seed_all`）；CPU 与 GPU 数值**不保证逐位一致**，对等性标准：合成数据冒烟在三种 profile 上都能跑通且指标同量级；正式结论只依据 `hpc`。
 - 读出层的协方差求解始终 fp32，不进 AMP。

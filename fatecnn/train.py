@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from .data import SyntheticParts
 from .losses import fate_loss, silence_loss, stability_loss, erf_leak_loss
-from .model import FATECNN
+from .model import build_model
 from .occlusion import TRAIN_FILLS, occlude_part
 from . import metrics
 from .env import load_config, paths, write_manifest
@@ -39,7 +39,8 @@ def run(cfg):
     dl = DataLoader(tr, batch_size=cfg["batch_size"], shuffle=True, num_workers=cfg.get("workers", 0), drop_last=False)
     va, _, _ = build_dataset(cfg, "val" if cfg.get("dataset") != "synthetic" else "test")
     vdl = DataLoader(va, batch_size=cfg["batch_size"], num_workers=cfg.get("workers", 0))
-    model = FATECNN(C, K, cfg["arch"], pretrained=cfg.get("pretrained", False)).to(dev)
+    model = build_model(cfg, C, K).to(dev)
+    method = cfg.get("method", "fate")
     backbone = list(model.stem.parameters()) + list(model.body.parameters())
     opt = torch.optim.AdamW([{"params": backbone, "lr": cfg["lr"] * cfg.get("backbone_lr_mult", 1.0)},
                              {"params": model.head.parameters(), "lr": cfg["lr"]}], weight_decay=cfg.get("wd", 1e-4))
@@ -54,13 +55,25 @@ def run(cfg):
         for x, y, m in dl:
             x, y, m = x.to(dev), y.to(dev), m.to(dev)
             p = random.randrange(K)
-            use_erf = cfg["lambda_erf"] > 0 and step % cfg.get("erf_every", 4) == 0
+            use_erf = method.startswith("fate") and cfg["lambda_erf"] > 0 and step % cfg.get("erf_every", 4) == 0
             x.requires_grad_(use_erf)
             logits, a = model(x, m)
-            _, ae = model(occlude_part(x.detach(), m, p, random.choice(TRAIN_FILLS)), m, update=False)
-            erf = erf_leak_loss(a, x, m, p) if use_erf else None
-            loss = fate_loss(F.cross_entropy(logits, y), silence_loss(ae, p), stability_loss(ae, a, p), erf,
-                             cfg["lambda_sil"], cfg["lambda_stab"], cfg["lambda_erf"])
+            ce = F.cross_entropy(logits, y)
+            if method == "plain":
+                loss = ce
+            elif method == "multitask":  # same part supervision, no null / silence constraint
+                tgt = F.interpolate(m, size=a.shape[2:], mode="area")
+                loss = ce + cfg.get("lambda_seg", 1.0) * F.binary_cross_entropy_with_logits(model.raw, tgt)
+            else:
+                fill = random.choice(TRAIN_FILLS)
+                xo = occlude_part(x.detach(), m, p, fill)
+                if method == "cutout":  # same occlusion amount, classification-only
+                    loss = ce + F.cross_entropy(model(xo, m, update=False)[0], y)
+                else:                   # fate / fate_learned
+                    _, ae = model(xo, m, update=False)
+                    erf = erf_leak_loss(a, x, m, p) if use_erf else None
+                    loss = fate_loss(ce, silence_loss(ae, p), stability_loss(ae, a, p), erf,
+                                     cfg["lambda_sil"], cfg["lambda_stab"], cfg["lambda_erf"])
             opt.zero_grad(); loss.backward(); opt.step(); step += 1
         sched.step()
         model.eval(); c = n = 0; sr = 0.0

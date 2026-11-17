@@ -40,5 +40,6 @@ python -m fatecnn.train --config configs/synthetic.yaml
 ```
 
 ## 状态
-GPU 之前的准备已完成（6 个测试通过，CPU 上端到端训练+评估跑通）。**尚未做**：真实数据下载、RIVAL10 转换脚本、
-基线接入、三臂签名估计、种子聚合脚本、HPC 调度器/队列核实（清单见 docs/04_requirements.md）。涨点预期均为推测。
+训练前的准备已完成（9 个测试通过；预检中 10 种方法/消融配置在合成数据上各跑通一步训练+评估）。
+**尚未做**：真实数据（CUB/RIVAL10）下载与 RIVAL10 转换、外部基线（ICNN/ProtoPNet/PIP-Net/CompNets/MPM）、真实数据上的超参调试、
+HPC 调度器核实（清单见 docs/04_requirements.md）。尚无任何真实训练结果；涨点预期均为推测。

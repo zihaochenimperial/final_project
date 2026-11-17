@@ -10,18 +10,38 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def estimate_signatures(feat, masks, eps=1e-6):
-    """Part signatures as in-part minus out-of-part mean feature (contour-difference estimator).
+def edge_weights(x, h, w):
+    """Generic (part-agnostic) Sobel edge magnitude, normalised to [0,1], at feature resolution."""
+    g = x.mean(1, keepdim=True)
+    kx = torch.tensor([[-1., 0, 1], [-2, 0, 2], [-1, 0, 1]], device=x.device)[None, None]
+    gx, gy = F.conv2d(g, kx, padding=1), F.conv2d(g, kx.transpose(2, 3), padding=1)
+    e = (gx ** 2 + gy ** 2).sqrt()
+    e = F.interpolate(e, size=(h, w), mode="area")
+    return e / (e.amax((2, 3), keepdim=True) + 1e-8)
 
-    feat:  (B, C, h, w); masks: (B, K, H, W) in {0,1} (resized to h, w).
-    Returns (K, C) signatures, plus (C, C) covariance of residual features.
-    """
+
+def estimate_signatures(feat, masks, mode="region", edge=None, eps=1e-6):
+    """Part signatures (K, C) = weighted in-part mean feature minus outside mean. `mode` = the three arms:
+      region  : in-part mask area vs outside                           (region only)
+      contour : thin band on the part's own boundary vs outside        (region + part contour)
+      edge    : in-part area weighted by GENERIC Sobel edges vs outside (region + generic edge)
+    feat (B,C,h,w); masks (B,K,H,W); edge (B,1,h,w) required for mode='edge'."""
     B, C, h, w = feat.shape
-    m = F.interpolate(masks.float(), size=(h, w), mode="area")  # (B,K,h,w)
-    f = feat.flatten(2)                                         # (B,C,hw)
-    mk = m.flatten(2)                                           # (B,K,hw)
-    inside = torch.einsum("bkn,bcn->kc", mk, f) / (mk.sum((0, 2))[:, None] + eps)
-    out_w = 1.0 - mk
+    m = F.interpolate(masks.float(), size=(h, w), mode="area")
+    if mode == "contour":
+        mb = (m > 0.5).float()
+        dil = F.max_pool2d(mb, 3, 1, 1); ero = -F.max_pool2d(-mb, 3, 1, 1)
+        wt = (dil - ero).clamp(0, 1)
+    elif mode == "edge":
+        assert edge is not None, "mode='edge' needs an edge map"
+        wt = m * edge
+    elif mode == "region":
+        wt = m
+    else:
+        raise ValueError(mode)
+    f = feat.flatten(2)
+    wk, out_w = wt.flatten(2), (1.0 - m).flatten(2)
+    inside = torch.einsum("bkn,bcn->kc", wk, f) / (wk.sum((0, 2))[:, None] + eps)
     outside = torch.einsum("bkn,bcn->kc", out_w, f) / (out_w.sum((0, 2))[:, None] + eps)
     return inside - outside
 
@@ -35,19 +55,20 @@ def covariance(feat):
 class LCMVReadout(nn.Module):
     """1x1 read-out whose weights are the closed-form LCMV solution (not trained by SGD)."""
 
-    def __init__(self, channels, num_parts, momentum=0.1, loading=1e-2):
+    def __init__(self, channels, num_parts, momentum=0.1, loading=1e-2, sig_mode="region"):
         super().__init__()
-        self.C, self.K, self.momentum, self.loading = channels, num_parts, momentum, loading
+        self.C, self.K, self.momentum, self.loading, self.sig_mode = channels, num_parts, momentum, loading, sig_mode
         self.register_buffer("sig", torch.randn(num_parts, channels) / channels ** 0.5)
         self.register_buffer("cov", torch.eye(channels))
         self.register_buffer("weight", torch.zeros(num_parts, channels))
         self.refresh()
 
     @torch.no_grad()
-    def update_stats(self, feat, masks=None):
+    def update_stats(self, feat, masks=None, x=None):
         self.cov.lerp_(covariance(feat.detach().float()), self.momentum)
         if masks is not None:
-            self.sig.lerp_(estimate_signatures(feat.detach().float(), masks), self.momentum)
+            edge = edge_weights(x.detach(), *feat.shape[2:]) if self.sig_mode == "edge" else None
+            self.sig.lerp_(estimate_signatures(feat.detach().float(), masks, self.sig_mode, edge), self.momentum)
 
     @torch.no_grad()
     def refresh(self):

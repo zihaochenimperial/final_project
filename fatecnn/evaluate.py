@@ -6,7 +6,7 @@ import yaml
 from torch.utils.data import DataLoader
 
 from . import metrics
-from .model import FATECNN
+from .model import build_model
 from .occlusion import TEST_FILLS, occlude_mask, occlude_part, random_block_mask
 from .train import build_dataset
 from .env import load_config, paths
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     cfg = load_config(os.path.join(a.run, "config.yaml"), profile=yaml.safe_load(open(os.path.join(a.run, "config.yaml"))).get("profile"))
     dev = cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
     ds, K, C = build_dataset(cfg, a.split)
-    model = FATECNN(C, K, cfg["arch"]).to(dev)
+    model = build_model(cfg, C, K).to(dev)
     model.load_state_dict(torch.load(os.path.join(a.run, "ckpt.pt"), map_location=dev))
     res = evaluate(model, DataLoader(ds, batch_size=cfg["batch_size"]), K, dev)
     json.dump(res, open(os.path.join(a.run, f"metrics_{a.split}.json"), "w"), indent=1)

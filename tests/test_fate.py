@@ -78,3 +78,29 @@ def test_unified_protocol(tmp_path, monkeypatch):
     assert h["epochs"] == 30 and h["lambda_erf"] == 0.1                  # hpc profile leaves full protocol intact
     m = write_manifest(str(tmp_path / "o"), cfg)
     assert os.path.exists(tmp_path / "o" / "manifest.json") and m["profile"] == "local" and m["config_sha"]
+
+
+def test_signature_arms_differ_and_methods_build():
+    from fatecnn.lcmv import edge_weights
+    from fatecnn.model import build_model, METHODS
+    torch.manual_seed(0)
+    f = torch.randn(2, 8, 16, 16); m = torch.zeros(2, 1, 64, 64); m[..., 8:40, 8:40] = 1
+    x = torch.rand(2, 3, 64, 64)
+    s = {k: estimate_signatures(f, m, k, edge_weights(x, 16, 16)) for k in ("region", "contour", "edge")}
+    assert not torch.allclose(s["region"], s["contour"]) and not torch.allclose(s["region"], s["edge"])
+    for meth in METHODS:
+        mod = build_model(dict(method=meth, arch="resnet18", sig_mode="contour"), 4, 4)
+        lg, a = mod(x, m.expand(-1, 4, -1, -1)); assert lg.shape == (2, 4)
+
+
+def test_stats_bootstrap(tmp_path):
+    import json
+    from fatecnn.stats import bootstrap_ci, paired_bootstrap, collect, summarize, to_markdown
+    mean, lo, hi = bootstrap_ci([0.8, 0.82, 0.84]); assert lo <= mean <= hi
+    d, lo, hi = paired_bootstrap([0.9, 0.9, 0.9], [0.8, 0.8, 0.8]); assert abs(d - 0.1) < 1e-9
+    res = lambda v: dict(clean_acc=v, part_occ_acc={"gray": {0: v}}, silence={"gray": {0: v}},
+                         stability={"gray": {0: v}}, block_acc={"gray": {"0.2": v}})
+    for s in range(3):
+        p = tmp_path / "expA" / str(s); p.mkdir(parents=True); json.dump(res(0.8 + 0.01 * s), open(p / "metrics_test.json", "w"))
+    md = to_markdown(summarize(collect(str(tmp_path))))
+    assert "expA" in md and "| 3 |" in md

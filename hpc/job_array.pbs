@@ -1,0 +1,16 @@
+#!/bin/bash
+# TEMPLATE. Generate the list first:  python scripts/experiments.py jobs > hpc/jobs.txt   (30 lines = 10 exps x 3 seeds)
+# Submit:  qsub -J 1-30 hpc/job_array.pbs     (PBS Pro array syntax; Slurm would be --array=1-30) -- verify on Imperial RCS
+#PBS -N fate_array
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=8:mem=48gb:ngpus=1:gpu_type=RTX6000   # TODO verify
+#PBS -j oe
+cd "$PBS_O_WORKDIR"
+export FATE_PROFILE=hpc
+export FATE_DATA=${FATE_DATA:-$HOME/data}
+export FATE_RUNS=${FATE_RUNS:-$HOME/runs}
+source "$HOME/venvs/fate/bin/activate"
+IDX=${PBS_ARRAY_INDEX:-${SLURM_ARRAY_TASK_ID:-1}}
+CMD=$(sed -n "${IDX}p" hpc/jobs.txt)
+echo "[$IDX] $CMD"
+eval "$CMD"
