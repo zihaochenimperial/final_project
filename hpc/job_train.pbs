@@ -1,0 +1,11 @@
+#!/bin/bash
+# TEMPLATE -- scheduler (PBS vs Slurm), queue and gpu_type on Imperial RCS must be verified (docs/04_requirements.md).
+#PBS -N fate_cub_r18
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=8:mem=48gb:ngpus=1:gpu_type=RTX6000   # TODO verify gpu_type / queue
+#PBS -j oe
+cd "$PBS_O_WORKDIR"
+source "$HOME/venvs/fate/bin/activate"
+SEED=${SEED:-0}
+python -m fatecnn.train --config configs/cub_r18.yaml --set seed=$SEED out=runs/cub_r18/$SEED
+python -m fatecnn.evaluate --run runs/cub_r18/$SEED --split test

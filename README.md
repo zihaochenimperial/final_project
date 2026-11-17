@@ -20,7 +20,15 @@ fatecnn/metrics.py  沉默率、他核稳定性、匹配通道抑制特异性
 fatecnn/model.py    ResNet(stem..layer3) -> LCMV 读出 -> 可见性门控 -> 分类头
 fatecnn/data.py     SyntheticParts 冒烟数据集；RIVAL10/CUB 沿用同一接口
 configs/            实验配置
-docs/PLAN.md        选题方案、实验与风险（来自 2026-11-17 的调研记录）
+docs/PLAN.md        选题方案总览（2026-11-17 调研记录）
+docs/01_objectives.md  目标
+docs/02_protocol.md    协议（数据划分/遮挡/指标/基线/降档）
+docs/03_settings.md    设置（模型/损失/训练超参）
+docs/04_requirements.md 需求（数据/算力/HPC 清单/待办）
+fatecnn/datasets.py CUB 加载（关键点→8 部件）+ 通用文件夹格式
+fatecnn/occlusion.py 遮挡协议（灰/噪声/纹理/块）
+fatecnn/evaluate.py  评估脚本
+hpc/                 环境脚本与作业模板（调度器/队列需核实）
 ```
 
 ## 快速开始
@@ -31,5 +39,5 @@ python -m fatecnn.train --config configs/synthetic.yaml
 ```
 
 ## 状态
-骨架与单元测试完成（零陷约束、签名估计、损失、训练冒烟）。**尚未实现**：RIVAL10 / CUB 数据加载、
-基线（ICNN、ProtoPNet/PIP-Net、CompNets、MPM）、多填充遮挡评估、ResNet-50 实验。所有涨点预期均为推测，未经实验验证。
+GPU 之前的准备已完成（6 个测试通过，CPU 上端到端训练+评估跑通）。**尚未做**：真实数据下载、RIVAL10 转换脚本、
+基线接入、三臂签名估计、种子聚合脚本、HPC 调度器/队列核实（清单见 docs/04_requirements.md）。涨点预期均为推测。

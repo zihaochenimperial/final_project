@@ -1,0 +1,17 @@
+dataset: cub
+root: data/CUB_200_2011        # parent of CUB_200_2011/ or the folder itself
+arch: resnet50
+pretrained: true
+size: 224
+batch_size: 64
+workers: 8
+lr: 1.0e-3
+backbone_lr_mult: 0.1
+wd: 1.0e-4
+epochs: 40
+seed: 0
+lambda_sil: 1.0
+lambda_stab: 1.0
+lambda_erf: 0.1
+erf_every: 4
+out: runs/cub_r50/0
