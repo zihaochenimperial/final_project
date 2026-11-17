@@ -43,5 +43,5 @@ python -m fatecnn.train --config configs/synthetic.yaml
 
 ## 状态（2026-11-17b）
 - 训练前修复与回归测试已完成；验收单冻结于 `docs/07_acceptance.md`；早期负结果与固定设置复核在 `results/early_diagnostics/`。
-- **没有任何真实数据训练结果**；合成自检不构成方法证据（见 docs/06）。
+- **没有任何真实数据训练结果**；合成自检不构成方法证据，且在 `distinct/redundant` 构造下 LCMV 训练中失效（docs/06、docs/07 §D2）。
 - **阻塞**：RIVAL10 数据与转换脚本、CUB 数据（容器不能联网）、外部基线、HPC 调度器核实。正式训练与 HPC 提交未获授权。

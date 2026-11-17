@@ -97,6 +97,7 @@ class LCMVReadout(nn.Module):
         self.register_buffer("weight", torch.zeros(num_parts, channels))
         self.register_buffer("ema_cov", torch.zeros(num_parts))      # effective coverage (weight mass / batch)
         self.register_buffer("n_upd", torch.zeros(num_parts))        # signature updates actually applied per part
+        self.register_buffer("n_refresh_fail", torch.zeros(()))      # non-finite closed-form solves (weights kept)
         self.refresh()
 
     @torch.no_grad()
@@ -117,11 +118,18 @@ class LCMVReadout(nn.Module):
         Cm = torch.cat([self.sig, torch.ones(1, self.C, device=self.sig.device)], 0).T   # (C, K+1)
         RiC = torch.linalg.solve(R, Cm)
         G = Cm.T @ RiC
-        return R, Cm, G, RiC @ torch.linalg.inv(G)
+        # tiny ridge on G: if C is rank-deficient the constraints are infeasible; we return the least-squares-like
+        # solution instead of crashing, and diagnostics() reports the (large) constraint residual / rank shortfall.
+        Gr = G + 1e-8 * G.diagonal().mean().abs().clamp_min(1e-12) * torch.eye(G.shape[0], device=G.device)
+        return R, Cm, G, RiC @ torch.linalg.pinv(Gr, hermitian=True)
 
     @torch.no_grad()
     def refresh(self):
-        self.weight.copy_(self._solve()[3][:, : self.K].T)
+        W = self._solve()[3][:, : self.K].T
+        if torch.isfinite(W).all():
+            self.weight.copy_(W)
+        else:                                   # keep previous weights; count the failure
+            self.n_refresh_fail += 1
 
     @torch.no_grad()
     def diagnostics(self):
@@ -131,7 +139,7 @@ class LCMVReadout(nn.Module):
         return dict(rank_C=int(torch.linalg.matrix_rank(Cm)), need_rank=self.K + 1,
                     cond_R=float(torch.linalg.cond(R)), cond_G=float(torch.linalg.cond(G)),
                     constraint_residual=float((Cm.T @ W - I).norm()), w_norm_max=float(W.norm(dim=0).max()),
-                    min_ema_coverage=float(self.ema_cov.min()), min_sig_updates=float(self.n_upd.min()))
+                    min_ema_coverage=float(self.ema_cov.min()), min_sig_updates=float(self.n_upd.min()), refresh_failures=float(self.n_refresh_fail))
 
     def leakage(self):
         """|w_p^T s_q| (estimated-signature linear response); off-diagonal should be ~0."""

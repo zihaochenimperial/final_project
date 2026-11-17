@@ -211,3 +211,31 @@ def test_stats_bootstrap(tmp_path):
                   open(p / "metrics_test.json", "w"))
     md = to_markdown(summarize(collect(str(tmp_path))))
     assert "expA" in md and "| 3 |" in md
+
+
+def test_synthetic_distinct_mode_has_distinct_signatures_and_class_from_any_part():
+    from fatecnn.data import SyntheticParts
+    d = SyntheticParts(64, seed=0, mode="distinct")
+    cols = {}
+    for x, y, m in d.items:
+        for p in range(4):
+            mean = (x * m[p][None]).sum((1, 2)) / m[p].sum()
+            cols.setdefault(p, {}).setdefault(y, []).append(mean)
+    # distinct hue per part: directions differ across parts
+    dirs = torch.stack([torch.stack(cols[p][0]).mean(0) / torch.stack(cols[p][0]).mean(0).norm() for p in range(4)])
+    # RGB has only 3 dims, so colour alone cannot give rank 4; the real feature-space rank is checked by LCMV diagnostics.
+    off = dirs @ dirs.T - torch.eye(4) + torch.eye(4) * 0
+    assert (off[~torch.eye(4, dtype=bool)]).max() < 0.99 and torch.linalg.matrix_rank(dirs, atol=0.02) == 3
+    # class readable from any single part: brightness orders classes in every part
+    for p in range(4):
+        lv = [torch.stack(cols[p][y]).mean(0).sum() for y in sorted(cols[p])]
+        assert all(a < b for a, b in zip(lv, lv[1:]))
+
+
+def test_lcmv_rank_deficient_signatures_do_not_crash_and_are_flagged():
+    torch.manual_seed(0)
+    r = LCMVReadout(16, 3, loading=1e-2)
+    r.sig.copy_(torch.randn(1, 16).repeat(3, 1)); r.refresh()                # three identical signatures
+    d = r.diagnostics()
+    assert d["rank_C"] < d["need_rank"] and d["constraint_residual"] > 0.1 and d["refresh_failures"] == 0
+    assert torch.isfinite(r.weight).all()

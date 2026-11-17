@@ -48,6 +48,14 @@ pre-gate 成对连续分数；干净响应覆盖；他部件扰动（未连带 /
 **失败（任一成立）**：P1 或 P4 不成立；选择性被同面积对照解释（`silence_control` 与 `silence` 无差）；`multitask` 或 `cutout` 达到 `fate` 的 P1/P3/P4；texture 上 `silence_selectivity` 相对 gray 下降 > 50%（填充捷径）。
 **不得**用阈值调整（只在 train/val 定义）、换填充、事后改部件子集来挽救失败。
 
+## D2. 新增门槛（2026-11-17b 复核后追加，仍在任何真实训练之前）
+- **G0 签名可识别性**（`scripts/signature_check.py`，冻结骨干，训练前，在 RIVAL10 train 上）：`rank_C = K+1` 且约束残差 < 1e-3，并报告部件共现矩阵。**G0 只是必要条件**：合成数据上 G0 全部通过，但训练后 LCMV 仍失效。
+- **G1 训练中 LCMV 有效性**：`train.py` 每个 epoch 记录 rank / cond_G / 约束残差 / 最大 ‖w‖（`lcmv_diag.jsonl`）。任一 epoch 出现 `rank_C < K+1` 或残差 > 1e-2 → 该 LCMV 运行判为 **LCMV 失效**：
+  不计入“通过”，也**不得**当作“LCMV 方法被检验后表现差”；单独报告失效率与出现的 epoch。
+- V2 的口径据此改为：**每个 epoch** 都满足，而不仅是训练结束时。
+- 合成复核（results/early_diagnostics/rerun.md）已在 `distinct/redundant` 构造上触发 G1，故这两种构造下 LCMV 臂结果无效；这并不证伪也不支持 LCMV 假设。
+- **建议的 stage‑0（尚未做）**：冻结预训练骨干，只比较读出（LCMV 闭式 vs 同初始化的 learned vs 线性探针），把读出与骨干训练动力学解耦；通过后再进入 stage‑1。
+
 ## E. 当前阻塞（需要真实数据 / 外部条件）
 1. RIVAL10 数据与转换脚本（官方标注格式待核对）。
 2. CUB 数据下载。

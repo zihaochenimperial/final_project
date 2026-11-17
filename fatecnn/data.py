@@ -4,6 +4,10 @@ Palette is FIXED (palette_seed) across train/val/test: splits differ only in sam
 channels = a separate colour-shift test. Modes:
   redundant : every part carries the class colour (part-specific brightness) -> class decodable from ANY remaining part.
               Use this for occlusion-robust classification diagnostics.
+  distinct  : every part has its OWN fixed hue (distinct signatures -> C full rank) and the class only modulates brightness
+              (same level in all parts) -> class decodable from any remaining part. Default for FATE diagnostics.
+  (redundant above gives all parts the SAME class colour => near-collinear signatures => violates LCMV's rank assumption;
+   kept only because the violation was measured: rank_C=4<5, cond_G~3e9.)
   missing   : class = which part is absent (legacy). NOT suitable for occlusion accuracy: erasing a present part makes
               the image look like another class."""
 import math
@@ -31,6 +35,8 @@ class SyntheticParts(Dataset):
                 sl = (slice(y0, y0 + cell - 6), slice(x0, x0 + cell - 6))
                 if mode == "redundant":
                     col = palette[y] * (0.75 + 0.08 * p)
+                elif mode == "distinct":
+                    col = palette[p] * (0.45 + 0.15 * y)
                 else:
                     if (y + p) % num_classes == num_classes - 1:
                         continue

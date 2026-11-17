@@ -19,7 +19,7 @@ def build_dataset(cfg, split):
         from .data import SPLIT_SEED
         n = cfg["n"] if split == "train" else cfg.get("n_eval", cfg["n"])
         ds = SyntheticParts(n, cfg["size"], cfg["num_parts"], cfg["num_classes"], seed=SPLIT_SEED[split],
-                            mode=cfg.get("synthetic_mode", "redundant"), shift=(split == "test_shift"))
+                            mode=cfg.get("synthetic_mode", "distinct"), shift=(split == "test_shift"))
         return ds, cfg["num_parts"], cfg["num_classes"]
     from .datasets import CubParts, FolderParts
     if name == "cub":
@@ -105,7 +105,15 @@ def run(cfg):
                 lg, a = model(x); c += (lg.argmax(1) == y).sum().item(); n += len(y)
                 if a is not None:
                     _, ae = model(occlude_part(x, m, 0, "gray")); sr += metrics.silence_rate(a, ae, 0) * len(y)
-        print(f"ep{ep} loss={loss.item():.3f} val_acc={c/n:.3f} val_silence(p0)={sr/n:.3f}", flush=True)
+        line = f"ep{ep} loss={loss.item():.3f} val_acc={c/n:.3f} val_silence(p0)={sr/n:.3f}"
+        if hasattr(getattr(model, "readout", None), "diagnostics"):       # LCMV validity monitor, every epoch
+            d = model.readout.diagnostics(); d["epoch"] = ep
+            line += f" | lcmv rank={d['rank_C']}/{d['need_rank']} cond_G={d['cond_G']:.1e} resid={d['constraint_residual']:.2g} |w|max={d['w_norm_max']:.1f}"
+            if out:
+                import json as _j; open(os.path.join(out, "lcmv_diag.jsonl"), "a").write(_j.dumps(d) + "\n")
+            if d["rank_C"] < d["need_rank"] or d["constraint_residual"] > 1e-2:
+                line += "  [LCMV INVALID: rank/constraint violated]"
+        print(line, flush=True)
         if out:
             torch.save(model.state_dict(), os.path.join(out, "ckpt.pt"))
     return model
