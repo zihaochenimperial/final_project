@@ -1,0 +1,12 @@
+[project]
+name = "fatecnn"
+version = "0.1.0"
+description = "FATE-CNN: Filter Annulment under Targeted Erasure"
+requires-python = ">=3.9"
+dependencies = ["torch", "torchvision", "pyyaml", "numpy"]
+
+[tool.setuptools]
+packages = ["fatecnn"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

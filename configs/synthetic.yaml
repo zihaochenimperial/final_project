@@ -1,0 +1,12 @@
+seed: 0
+arch: resnet18
+n: 128
+size: 64
+num_parts: 4
+num_classes: 4
+batch_size: 32
+lr: 1.0e-3
+epochs: 3
+lambda_sil: 1.0
+lambda_stab: 1.0
+lambda_erf: 0.0   # set >0 to enable ERF-leak (double backward, slower)
