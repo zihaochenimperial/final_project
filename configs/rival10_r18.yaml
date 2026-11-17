@@ -1,0 +1,19 @@
+# FIRST mechanism test. Needs RIVAL10 converted to the FolderParts format (docs/07, BLOCKED: data + converter).
+dataset: folder
+root: ${FATE_DATA}/rival10_parts     # <root>/{train,val,test}/index.json
+num_parts: 11                        # the 11 truly local attributes (7 whole-object attributes excluded)
+num_classes: 10
+arch: resnet18
+pretrained: true
+size: 224
+batch_size: 64
+workers: 8
+lr: 1.0e-3
+backbone_lr_mult: 0.1
+wd: 1.0e-4
+epochs: 30
+seed: 0
+lambda_sil: 0.1
+lambda_stab: 0.1
+lambda_erf: 0.0
+out: rival10_r18/0

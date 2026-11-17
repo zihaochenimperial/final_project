@@ -5,7 +5,7 @@ import subprocess, sys, tempfile, time
 import torch
 from fatecnn.env import detect_profile, paths, REPO, _git
 from fatecnn.train import run
-from fatecnn.evaluate import evaluate
+from fatecnn.evaluate import evaluate, calibrate
 from fatecnn.train import build_dataset
 from fatecnn.model import build_model
 from experiments import MATRIX
@@ -28,7 +28,7 @@ r = subprocess.run([sys.executable, _o.path.join(REPO, "scripts", "check_data.py
 print("[WARN] CUB data not found (needed for real runs)" if r.returncode else "[OK] CUB data layout")
 if "--fast" not in sys.argv:
     base = dict(dataset="synthetic", arch="resnet18", n=16, size=64, num_parts=4, num_classes=4, batch_size=8,
-                lr=1e-3, epochs=1, lambda_sil=0.1, lambda_stab=0.1, lambda_erf=0.1, erf_every=1, device="cpu", workers=0)
+                lr=1e-3, epochs=1, lambda_sil=0.1, lambda_stab=0.1, lambda_erf=0.0, erf_every=1, device="cpu", workers=0)
     for name, ov in MATRIX.items():
         t = time.time()
         try:
@@ -38,7 +38,9 @@ if "--fast" not in sys.argv:
                 with contextlib.redirect_stdout(io.StringIO()):
                     model = run({**cfg, "out": td})
                 ds, K, C = build_dataset(cfg, "test")
-                res = evaluate(model, DataLoader(ds, batch_size=8), K, "cpu", areas=(0.2,))
+                dv, _, _ = build_dataset(cfg, "val")
+                thr = calibrate(model, DataLoader(dv, batch_size=8), K, "cpu")["active_thr"] if getattr(model, "has_parts", True) else [0.0] * K
+                res = evaluate(model, DataLoader(ds, batch_size=8), K, "cpu", thr)
             rep(f"smoke {name}", 0 <= res["clean_acc"] <= 1, f"{time.time()-t:.1f}s")
         except Exception as e:
             rep(f"smoke {name}", False, repr(e)[:120])

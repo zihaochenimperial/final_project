@@ -6,22 +6,28 @@ import sys as _s, os as _o; _s.path.insert(0, _o.path.join(_o.path.dirname(_o.pa
 import sys
 
 SEEDS = (0, 1, 2)
+# STAGE 1 = minimal mechanism test (docs/07_acceptance.md): R18, lambda_erf=0, no R50, no ERF regulariser.
 # name -> overrides on the base config
-MATRIX = {
-    # main method and the 3-arm signature comparison (H4)
-    "fate_region": dict(method="fate", sig_mode="region"),
-    "fate_contour": dict(method="fate", sig_mode="contour"),
-    "fate_edge": dict(method="fate", sig_mode="edge"),
-    # baselines under identical parameters/budget
-    "plain": dict(method="plain"),
-    "cutout": dict(method="cutout"),
-    "multitask": dict(method="multitask"),
-    # ablations: LCMV vs learned readout (H2), erasure losses (H3), ERF
-    "abl_learned_readout": dict(method="fate_learned"),
-    "abl_no_erf": dict(method="fate", lambda_erf=0.0),
-    "abl_no_stab": dict(method="fate", lambda_stab=0.0),
-    "abl_no_sil": dict(method="fate", lambda_sil=0.0),
+STAGE1 = {
+    "gap_resnet": dict(method="gap_resnet"),                       # standard GAP+FC ResNet
+    "bottleneck": dict(method="bottleneck"),                       # capacity-matched K-channel bottleneck, CE only
+    "cutout": dict(method="cutout"),                               # + same-amount part occlusion
+    "multitask": dict(method="multitask"),                         # + part-mask supervision
+    "fate_learned": dict(method="fate_learned"),                   # learned read-out (LCMV-init) + erasure losses
+    "fate_lcmv_region": dict(method="fate", sig_mode="region"),    # closed-form LCMV read-out + erasure losses
+    # same read-out family, loss ablations (silence / stability)
+    "fate_learned_no_sil": dict(method="fate_learned", lambda_sil=0.0),
+    "fate_learned_no_stab": dict(method="fate_learned", lambda_stab=0.0),
+    "fate_lcmv_no_sil": dict(method="fate", lambda_sil=0.0),
+    "fate_lcmv_no_stab": dict(method="fate", lambda_stab=0.0),
 }
+# DEFERRED until STAGE 1 passes: 3-arm signature (contour/edge), ERF regulariser, R50, CUB full matrix.
+DEFERRED = {
+    "fate_lcmv_contour": dict(method="fate", sig_mode="contour"),
+    "fate_lcmv_edge": dict(method="fate", sig_mode="edge"),
+    "fate_lcmv_erf": dict(method="fate", lambda_erf=0.1),
+}
+MATRIX = STAGE1
 
 
 def jobs(cfg="configs/cub_r18.yaml"):

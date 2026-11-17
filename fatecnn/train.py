@@ -16,7 +16,10 @@ from .env import load_config, paths, write_manifest
 def build_dataset(cfg, split):
     name = cfg.get("dataset", "synthetic")
     if name == "synthetic":
-        ds = SyntheticParts(cfg["n"], cfg["size"], cfg["num_parts"], cfg["num_classes"], seed=0 if split == "train" else 1)
+        from .data import SPLIT_SEED
+        n = cfg["n"] if split == "train" else cfg.get("n_eval", cfg["n"])
+        ds = SyntheticParts(n, cfg["size"], cfg["num_parts"], cfg["num_classes"], seed=SPLIT_SEED[split],
+                            mode=cfg.get("synthetic_mode", "redundant"), shift=(split == "test_shift"))
         return ds, cfg["num_parts"], cfg["num_classes"]
     from .datasets import CubParts, FolderParts
     if name == "cub":
@@ -28,6 +31,20 @@ def build_dataset(cfg, split):
     raise ValueError(name)
 
 
+BACKBONE_PREFIXES = ("stem", "body", "layer4")
+
+
+def make_optimizer(model, cfg):
+    """Every trainable parameter must be in exactly one group (guards against silently frozen read-outs)."""
+    bb = [p for n, p in model.named_parameters() if n.startswith(BACKBONE_PREFIXES)]
+    rest = [p for n, p in model.named_parameters() if not n.startswith(BACKBONE_PREFIXES)]
+    groups = [{"params": bb, "lr": cfg["lr"] * cfg.get("backbone_lr_mult", 1.0)}, {"params": rest, "lr": cfg["lr"]}]
+    opt = torch.optim.AdamW([g for g in groups if g["params"]], weight_decay=cfg.get("wd", 1e-4))
+    seen = [id(p) for g in opt.param_groups for p in g["params"]]
+    assert len(seen) == len(set(seen)) == sum(1 for p in model.parameters() if p.requires_grad), "optimizer misses/duplicates params"
+    return opt
+
+
 def seed_all(s):
     random.seed(s); np.random.seed(s); torch.manual_seed(s); torch.cuda.manual_seed_all(s)
 
@@ -37,13 +54,11 @@ def run(cfg):
     dev = cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
     tr, K, C = build_dataset(cfg, "train")
     dl = DataLoader(tr, batch_size=cfg["batch_size"], shuffle=True, num_workers=cfg.get("workers", 0), drop_last=False)
-    va, _, _ = build_dataset(cfg, "val" if cfg.get("dataset") != "synthetic" else "test")
+    va, _, _ = build_dataset(cfg, "val")
     vdl = DataLoader(va, batch_size=cfg["batch_size"], num_workers=cfg.get("workers", 0))
     model = build_model(cfg, C, K).to(dev)
     method = cfg.get("method", "fate")
-    backbone = list(model.stem.parameters()) + list(model.body.parameters())
-    opt = torch.optim.AdamW([{"params": backbone, "lr": cfg["lr"] * cfg.get("backbone_lr_mult", 1.0)},
-                             {"params": [q for n_, q in model.named_parameters() if not n_.startswith(("stem", "body"))], "lr": cfg["lr"]}], weight_decay=cfg.get("wd", 1e-4))
+    opt = make_optimizer(model, cfg)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, cfg["epochs"])
     out = cfg.get("out")
     if out:
@@ -60,7 +75,9 @@ def run(cfg):
             x.requires_grad_(use_erf)
             logits, a = model(x, m)
             ce = F.cross_entropy(logits, y)
-            if method == "plain":
+            if not getattr(model, "has_parts", True):
+                opt.zero_grad(); ce.backward(); opt.step(); step += 1; loss = ce; continue
+            if method in ("gap_resnet", "bottleneck"):
                 loss = ce
             elif method == "multitask":  # same part supervision, no null / silence constraint
                 tgt = F.interpolate(m, size=a.shape[2:], mode="area")
@@ -85,8 +102,9 @@ def run(cfg):
         with torch.no_grad():
             for x, y, m in vdl:
                 x, y, m = x.to(dev), y.to(dev), m.to(dev)
-                lg, a = model(x); _, ae = model(occlude_part(x, m, 0, "gray"))
-                c += (lg.argmax(1) == y).sum().item(); n += len(y); sr += metrics.silence_rate(a, ae, 0) * len(y)
+                lg, a = model(x); c += (lg.argmax(1) == y).sum().item(); n += len(y)
+                if a is not None:
+                    _, ae = model(occlude_part(x, m, 0, "gray")); sr += metrics.silence_rate(a, ae, 0) * len(y)
         print(f"ep{ep} loss={loss.item():.3f} val_acc={c/n:.3f} val_silence(p0)={sr/n:.3f}", flush=True)
         if out:
             torch.save(model.state_dict(), os.path.join(out, "ckpt.pt"))

@@ -25,6 +25,8 @@ docs/01_objectives.md  目标
 docs/02_protocol.md    协议（数据划分/遮挡/指标/基线/降档）
 docs/03_settings.md    设置（模型/损失/训练超参）
 docs/04_requirements.md 需求（数据/算力/HPC 清单/待办）
+docs/06_pre_training_findings.md 训练前缺陷与自检
+docs/07_acceptance.md 冻结的最小验收单（含首个 R18 机制检验通过/失败条件）
 docs/05_unified_protocol.md 统一协议（仓库/本机/GPU：profile、路径、同步、manifest）
 fatecnn/datasets.py CUB 加载（关键点→8 部件）+ 通用文件夹格式
 fatecnn/occlusion.py 遮挡协议（灰/噪声/纹理/块）
@@ -39,6 +41,7 @@ pytest -q
 python -m fatecnn.train --config configs/synthetic.yaml
 ```
 
-## 状态
-训练前的工程准备已完成（测试通过；10 种配置的预检跑通）。合成数据自检**未**显示 FATE 优于基线，且发现并修复了若干缺陷，详见 docs/06_pre_training_findings.md。
-**尚未做**：真实数据（容器无法联网，请在有网机器用 `scripts/download_data.sh`）、RIVAL10 转换、外部基线、真实数据超参调试、HPC 调度器核实。无任何真实训练结果。
+## 状态（2026-11-17b）
+- 训练前修复与回归测试已完成；验收单冻结于 `docs/07_acceptance.md`；早期负结果与固定设置复核在 `results/early_diagnostics/`。
+- **没有任何真实数据训练结果**；合成自检不构成方法证据（见 docs/06）。
+- **阻塞**：RIVAL10 数据与转换脚本、CUB 数据（容器不能联网）、外部基线、HPC 调度器核实。正式训练与 HPC 提交未获授权。

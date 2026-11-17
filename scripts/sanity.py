@@ -1,25 +1,37 @@
-"""Mechanism sanity check on synthetic data (CPU, minutes): does FATE silence erased parts better than baselines?
-python scripts/sanity.py [epochs] [n]   -> prints a table. Not a result; only a go/no-go before spending GPU time."""
+"""Mechanism sanity on synthetic data (CPU). NOT a result: go/no-go on the plumbing and early diagnostics only.
+Fixed settings by design (size 64, loading 1e-2, amax pooling, lr 3e-4, 20 epochs): do not change several at once.
+python scripts/sanity.py [out.md] [mode=redundant|missing] [seeds=0,1]"""
 import sys as _s, os as _o; _s.path.insert(0, _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), ".."))
-import io, contextlib, sys
+import contextlib, io, sys
 import numpy as np
 from torch.utils.data import DataLoader
 from fatecnn.train import run, build_dataset
-from fatecnn.evaluate import evaluate
+from fatecnn.evaluate import evaluate, calibrate
+from fatecnn.stats import scalar_metrics
 
-ep = int(sys.argv[1]) if len(sys.argv) > 1 else 12
-n = int(sys.argv[2]) if len(sys.argv) > 2 else 512
-base = dict(dataset="synthetic", arch="resnet18", n=n, size=64, num_parts=4, num_classes=4, batch_size=32, lr=1e-3,
-            epochs=ep, lambda_sil=1.0, lambda_stab=1.0, lambda_erf=0.0, device="cpu", workers=0, seed=0)
-print(f"{'method':<22}{'clean':>7}{'occ(gray)':>10}{'occ(tex)':>10}{'sil(gray)':>10}{'sil(tex)':>10}{'stab':>7}")
-for name, ov in {"plain": dict(method="plain"), "cutout": dict(method="cutout"), "multitask": dict(method="multitask"),
-                 "fate_learned": dict(method="fate_learned"), "fate_region": dict(method="fate", sig_mode="region"),
-                 "fate_contour": dict(method="fate", sig_mode="contour")}.items():
-    cfg = {**base, **ov}
-    with contextlib.redirect_stdout(io.StringIO()):
-        model = run(cfg)
-    ds, K, C = build_dataset(cfg, "test")
-    r = evaluate(model, DataLoader(ds, batch_size=64), K, "cpu", areas=(0.2,))
-    m = lambda d: np.mean(list(d.values()))
-    print(f"{name:<22}{r['clean_acc']:>7.3f}{m(r['part_occ_acc']['gray']):>10.3f}{m(r['part_occ_acc']['texture']):>10.3f}"
-          f"{m(r['silence']['gray']):>10.3f}{m(r['silence']['texture']):>10.3f}{m(r['stability']['gray']):>7.3f}", flush=True)
+out = sys.argv[1] if len(sys.argv) > 1 else "sanity.md"
+mode = sys.argv[2] if len(sys.argv) > 2 else "redundant"
+seeds = [int(v) for v in (sys.argv[3] if len(sys.argv) > 3 else "0,1").split(",")]
+base = dict(dataset="synthetic", synthetic_mode=mode, arch="resnet18", n=512, n_eval=128, size=64, num_parts=4, num_classes=4,
+            batch_size=32, lr=3e-4, epochs=20, lambda_sil=0.1, lambda_stab=0.1, lambda_erf=0.0, device="cpu", workers=0)
+ARMS = {"gap_resnet": dict(method="gap_resnet"), "bottleneck": dict(method="bottleneck"), "cutout": dict(method="cutout"),
+        "multitask": dict(method="multitask"), "fate_learned": dict(method="fate_learned"), "fate_lcmv": dict(method="fate")}
+cols = ["clean_acc", "acc_target/texture", "acc_control/texture", "selectivity/texture", "silence/texture",
+        "other_unconnected/texture", "coverage", "suppress_matched_drop", "suppress_nonmatched_drop"]
+f = lambda v: "-" if v != v else f"{v:.3f}"
+with open(out, "a") as fh:
+    fh.write(f"\n## mode={mode} seeds={seeds}  (test and colour-shift test; thresholds from val)\n\n")
+    fh.write("| arm | seed | split | " + " | ".join(cols) + " |\n|" + "---|" * (len(cols) + 3) + "\n"); fh.flush()
+    for name, ov in ARMS.items():
+        for sd in seeds:
+            cfg = {**base, **ov, "seed": sd}
+            with contextlib.redirect_stdout(io.StringIO()):
+                model = run(cfg)
+            ds_v, K, C = build_dataset(cfg, "val")
+            thr = calibrate(model, DataLoader(ds_v, batch_size=64), K, "cpu")["active_thr"] if model.has_parts else [0.0] * K
+            for split in ("test", "test_shift"):
+                ds, _, _ = build_dataset(cfg, split)
+                r = scalar_metrics(evaluate(model, DataLoader(ds, batch_size=64), K, "cpu", thr))
+                fh.write(f"| {name} | {sd} | {split} | " + " | ".join(f(r[c]) for c in cols) + " |\n"); fh.flush()
+            if hasattr(getattr(model, "readout", None), "diagnostics"):
+                fh.write(f"|  | {sd} | lcmv_diag | {model.readout.diagnostics()} |\n"); fh.flush()

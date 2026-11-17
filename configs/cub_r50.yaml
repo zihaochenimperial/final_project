@@ -12,6 +12,6 @@ epochs: 40
 seed: 0
 lambda_sil: 0.1
 lambda_stab: 0.1
-lambda_erf: 0.1
+lambda_erf: 0.0   # ERF regulariser deferred until stage-1 evidence (docs/07)
 erf_every: 4
 out: cub_r50/0

@@ -25,6 +25,10 @@ def _to_tensor(img):
 
 
 class CubParts(Dataset):
+    # Keypoint discs: a NEIGHBOURHOOD occlusion around an annotated keypoint, NOT a part contour/segmentation.
+    # Official visibility flags decide whether a part exists; the disc must not be used for contour claims.
+    NEIGHBOURHOOD_MASKS = True
+
     def __init__(self, root, split="train", size=224, flip=False, radius_frac=0.1, val_frac=0.1, seed=0):
         base = os.path.join(root, "CUB_200_2011") if os.path.isdir(os.path.join(root, "CUB_200_2011")) else root
         rd = lambda f: [l.split() for l in open(os.path.join(base, f))]

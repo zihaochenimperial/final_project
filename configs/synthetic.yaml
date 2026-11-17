@@ -9,4 +9,4 @@ lr: 1.0e-3
 epochs: 3
 lambda_sil: 0.1
 lambda_stab: 0.1
-lambda_erf: 0.0   # set >0 to enable ERF-leak (double backward, slower)
+lambda_erf: 0.0   # ERF regulariser deferred until stage-1 evidence (docs/07)

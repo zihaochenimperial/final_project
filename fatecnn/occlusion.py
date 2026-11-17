@@ -38,3 +38,18 @@ def random_block_mask(B, H, W, area_frac, gen=None):
         y = int(torch.randint(0, H - s + 1, (1,), generator=gen)); x = int(torch.randint(0, W - s + 1, (1,), generator=gen))
         m[b, :, y:y + s, x:x + s] = 1
     return m
+
+
+def shifted_mask(mask, gen=None):
+    """Same-area, same-shape NON-TARGET control region: circularly shift `mask` (B,H,W) to a random zero-overlap place
+    (overlap for every shift via FFT cross-correlation); if none exists take the least-overlapping shift. -> (B,1,H,W)."""
+    B, H, W = mask.shape
+    out = torch.zeros(B, 1, H, W)
+    for b in range(B):
+        m = mask[b].float()
+        F = torch.fft.rfft2(m)
+        ov = torch.fft.irfft2(F * F.conj(), s=(H, W)).round()          # ov[dy,dx] = |m ∩ roll(m,(dy,dx))|
+        ok = (ov <= ov.min() + 0.5).flatten().nonzero().flatten()       # all minimal-overlap shifts (zero if one exists)
+        k = int(ok[int(torch.randint(0, len(ok), (1,), generator=gen))])
+        out[b, 0] = torch.roll(m, (k // W, k % W), (0, 1))
+    return out

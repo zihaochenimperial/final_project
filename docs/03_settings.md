@@ -1,6 +1,6 @@
 # 03 设置（Settings）
 
-## 模型
+## 模型（2026-11-17b 修订：臂的定义以 docs/07 §B 为准）
 - 骨干：torchvision ResNet-18（原型）/ ResNet-50（主表）；ImageNet 预训练；使用 stem..layer3。
 - 读出：LCMV 1×1，K 个部件；协方差 EMA 动量 0.1；对角加载 1e-2·mean(diag R)；签名 EMA 动量 0.1。
 - 读出计算固定 fp32（含 solve/inv），不进 AMP。
@@ -26,3 +26,9 @@ L = L_cls + λ₁·silence + λ₂·stability + λ₃·ERF-leak；默认 λ₁=0
 - 随机性：固定种子；`torch.backends.cudnn.deterministic=True`（评估时）。
 - 环境：Python ≥3.10，torch ≥2.2，torchvision，pyyaml，numpy，pillow。
 - HPC：Imperial RCS；作业调度器与 GPU 队列名待核实（见 04_requirements.md）；模板 `hpc/job_train.pbs`。
+
+## 修订 2026-11-17b
+- 所有 K 通道臂共享同一读出标定层（每部件增益、偏置，初值偏置 −0.5）；读出核无偏置。`fate_learned` 以首个训练批的 LCMV 闭式解初始化。
+- 签名 EMA 只在批内有效覆盖 ≥ `min_cov`（默认 1.0 个特征格质量）时更新，防止缺席部件把签名拖向 −外部均值；记录 `ema_cov`、`n_upd`。
+- ERF 正则关闭（`lambda_erf: 0.0`）直到 stage‑1 判定；R50 配置保留但不使用。
+- 优化器：骨干（stem/body/layer4）与其余参数两组，并断言无遗漏/重复。

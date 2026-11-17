@@ -30,17 +30,15 @@
 4. 能否接受“精度持平、鲁棒/可解释提升”的帕累托叙事？
 5. 能否用 DINO/SAM 3 伪掩码扩展到 PartImageNet++？
 
-## 软件/代码需求清单
-- [x] LCMV 读出、损失、指标、冒烟训练
-- [x] CUB 加载（关键点→部件掩码）、通用部件数据集接口
-- [x] 遮挡协议（灰/噪声/纹理/块）、评估脚本
-- [x] HPC 作业模板（单作业 + 数组作业）、环境脚本
-- [x] 统一协议（docs/05）、manifest、collect/check_data
-- [x] 对照方法：plain / cutout（同遮挡量）/ multitask（同部件监督）/ fate_learned（LCMV 消融），均在同一骨干与调参预算下
-- [x] 三臂签名估计（region / contour / edge，见 `lcmv.estimate_signatures`；操作性定义为本仓库的约定，待与老师确认其对应“仅区域/区域+轮廓/区域+通用边缘”的口径）
-- [x] 实验矩阵 `scripts/experiments.py`（10 组 × 3 种子 = 30 作业）+ 预检 `scripts/preflight.py`
-- [x] 种子聚合与 bootstrap 置信区间（`scripts/aggregate.py`）
-- [ ] RIVAL10 转换脚本（需数据；其官方标注格式尚未核对）
-- [ ] 外部基线：Interpretable CNN、ProtoPNet/PIP-Net、CompositionalNets、Concept Whitening、MPM（需引入官方实现并对齐骨干/预算）
-- [ ] 真实 CUB 数据上的超参调试（lr/λ 为初始值；合成数据自检见 docs/06，**FATE 尚未显示优于基线**）
-- [ ] Imperial HPC 调度器/队列核实后更新 `hpc/*.pbs`
+## 软件/代码需求清单（2026-11-17b）
+- [x] 优化器覆盖修复 + 回归测试（含变异检验）
+- [x] 对照臂拆分：gap_resnet / bottleneck（容量匹配）/ cutout / multitask / fate_learned（LCMV 初始化）/ fate
+- [x] 签名 EMA 覆盖门控、LCMV 假设诊断、三臂共享区域基项、小部件消失率量化
+- [x] 成对干预评估器（同面积非目标对照、未见填充、他部件连带/非连带分列、天然不可见单列、匹配 vs 非匹配通道抑制、val 阈值）
+- [x] 合成数据：固定调色板、冗余构造、换色单列
+- [x] 冻结验收单 docs/07；早期负结果存档 results/early_diagnostics/
+- [ ] **RIVAL10 转换脚本**（阻塞：数据 + 官方标注格式）
+- [ ] **CUB 数据**（阻塞：需有网机器下载）
+- [ ] 外部基线 ICNN / CompositionalNets / MPM（原创性判定前必须）
+- [ ] HPC 调度器/队列核实
+- [ ] 三臂签名、ERF 正则、R50、30 作业矩阵（延后至 stage‑1 判定后）
