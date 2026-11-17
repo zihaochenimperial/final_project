@@ -9,6 +9,7 @@ from . import metrics
 from .model import FATECNN
 from .occlusion import TEST_FILLS, occlude_mask, occlude_part, random_block_mask
 from .train import build_dataset
+from .env import load_config, paths
 
 
 @torch.no_grad()
@@ -49,8 +50,10 @@ def evaluate(model, dl, K, device, areas=(0.1, 0.2, 0.3)):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--run", required=True); ap.add_argument("--split", default="test")
     a = ap.parse_args()
-    cfg = yaml.safe_load(open(os.path.join(a.run, "config.yaml")))
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    if not os.path.isabs(a.run) and not os.path.exists(a.run):
+        a.run = os.path.join(paths()["FATE_RUNS"], a.run)
+    cfg = load_config(os.path.join(a.run, "config.yaml"), profile=yaml.safe_load(open(os.path.join(a.run, "config.yaml"))).get("profile"))
+    dev = cfg.get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
     ds, K, C = build_dataset(cfg, a.split)
     model = FATECNN(C, K, cfg["arch"]).to(dev)
     model.load_state_dict(torch.load(os.path.join(a.run, "ckpt.pt"), map_location=dev))

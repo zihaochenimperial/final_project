@@ -5,7 +5,11 @@
 #PBS -l select=1:ncpus=8:mem=48gb:ngpus=1:gpu_type=RTX6000   # TODO verify gpu_type / queue
 #PBS -j oe
 cd "$PBS_O_WORKDIR"
+export FATE_PROFILE=hpc
+export FATE_DATA=${FATE_DATA:-$HOME/data}      # TODO: put on RDS/scratch after checking quota
+export FATE_RUNS=${FATE_RUNS:-$HOME/runs}
 source "$HOME/venvs/fate/bin/activate"
 SEED=${SEED:-0}
-python -m fatecnn.train --config configs/cub_r18.yaml --set seed=$SEED out=runs/cub_r18/$SEED
-python -m fatecnn.evaluate --run runs/cub_r18/$SEED --split test
+python scripts/check_data.py
+python -m fatecnn.train --config configs/cub_r18.yaml --set seed=$SEED out=cub_r18/$SEED
+python -m fatecnn.evaluate --run cub_r18/$SEED --split test

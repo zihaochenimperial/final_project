@@ -1,0 +1,2 @@
+# Imperial RCS GPU job: the ONLY profile for reported numbers (full config; nothing overridden except workers).
+workers: 8

@@ -1,5 +1,5 @@
 dataset: cub
-root: data/CUB_200_2011        # parent of CUB_200_2011/ or the folder itself
+root: ${FATE_DATA}/CUB_200_2011
 arch: resnet18
 pretrained: true
 size: 224
@@ -14,4 +14,4 @@ lambda_sil: 1.0
 lambda_stab: 1.0
 lambda_erf: 0.1
 erf_every: 4
-out: runs/cub_r18/0
+out: cub_r18/0

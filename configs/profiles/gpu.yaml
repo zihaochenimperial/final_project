@@ -1,0 +1,2 @@
+# Single local/cloud GPU: prototyping; reported numbers only if manifest is clean (git_dirty=false).
+workers: 4

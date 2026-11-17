@@ -1,0 +1,7 @@
+# Laptop/desktop/cloud-CPU: debugging only. Never used for reported numbers.
+device: cpu
+workers: 0
+batch_size: 16
+epochs: 1
+pretrained: false
+lambda_erf: 0.0

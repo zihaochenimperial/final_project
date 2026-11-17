@@ -25,6 +25,7 @@ docs/01_objectives.md  目标
 docs/02_protocol.md    协议（数据划分/遮挡/指标/基线/降档）
 docs/03_settings.md    设置（模型/损失/训练超参）
 docs/04_requirements.md 需求（数据/算力/HPC 清单/待办）
+docs/05_unified_protocol.md 统一协议（仓库/本机/GPU：profile、路径、同步、manifest）
 fatecnn/datasets.py CUB 加载（关键点→8 部件）+ 通用文件夹格式
 fatecnn/occlusion.py 遮挡协议（灰/噪声/纹理/块）
 fatecnn/evaluate.py  评估脚本

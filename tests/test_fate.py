@@ -65,3 +65,16 @@ def test_cub_loader_and_evaluate(tmp_path):
     model = FATECNN(200, 8)
     res = evaluate(model, DataLoader(te, batch_size=2), 8, "cpu", areas=(0.1,))
     assert 0 <= res["clean_acc"] <= 1 and "texture" in res["silence"]
+
+
+def test_unified_protocol(tmp_path, monkeypatch):
+    import json, os
+    monkeypatch.setenv("FATE_RUNS", str(tmp_path)); monkeypatch.setenv("FATE_DATA", str(tmp_path / "d"))
+    from fatecnn.env import load_config, write_manifest
+    cfg = load_config("configs/cub_r18.yaml", ["seed=2"], "local")
+    assert cfg["root"] == str(tmp_path / "d" / "CUB_200_2011")          # env-var expansion
+    assert cfg["seed"] == 2 and cfg["device"] == "cpu" and cfg["epochs"] == 1  # config < profile < --set
+    h = load_config("configs/cub_r18.yaml", [], "hpc")
+    assert h["epochs"] == 30 and h["lambda_erf"] == 0.1                  # hpc profile leaves full protocol intact
+    m = write_manifest(str(tmp_path / "o"), cfg)
+    assert os.path.exists(tmp_path / "o" / "manifest.json") and m["profile"] == "local" and m["config_sha"]

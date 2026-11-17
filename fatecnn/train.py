@@ -10,6 +10,7 @@ from .losses import fate_loss, silence_loss, stability_loss, erf_leak_loss
 from .model import FATECNN
 from .occlusion import TRAIN_FILLS, occlude_part
 from . import metrics
+from .env import load_config, paths, write_manifest
 
 
 def build_dataset(cfg, split):
@@ -46,6 +47,7 @@ def run(cfg):
     out = cfg.get("out")
     if out:
         os.makedirs(out, exist_ok=True); yaml.safe_dump(cfg, open(os.path.join(out, "config.yaml"), "w"))
+        write_manifest(out, cfg)
     step = 0
     for ep in range(cfg["epochs"]):
         model.train()
@@ -75,8 +77,10 @@ def run(cfg):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--config", default="configs/synthetic.yaml")
-    ap.add_argument("--set", nargs="*", default=[], help="key=value overrides, e.g. seed=1 out=runs/x/1")
-    a = ap.parse_args(); cfg = yaml.safe_load(open(a.config))
-    for kv in a.set:
-        k, v = kv.split("=", 1); cfg[k] = yaml.safe_load(v)
+    ap.add_argument("--profile", default=None, help="local|gpu|hpc (default: auto-detect / $FATE_PROFILE)")
+    ap.add_argument("--set", nargs="*", default=[], help="key=value overrides, e.g. seed=1")
+    a = ap.parse_args()
+    cfg = load_config(a.config, a.set, a.profile)
+    if cfg.get("out") and not os.path.isabs(cfg["out"]):  # runs always land under $FATE_RUNS
+        cfg["out"] = os.path.join(paths()["FATE_RUNS"], cfg["out"])
     run(cfg)
